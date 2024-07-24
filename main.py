@@ -1,17 +1,18 @@
 import requests
 from skyfield.api import EarthSatellite, Topos, load
+from datetime import datetime, timezone
 import numpy as np
 import time as tm
 import uuid 
 import csv
 import twitter
+import mag as im
 
 last_tle_update = tm.time()
 last_mag_update = tm.time()
 DEG_MARGIN = 2
-EVENT_DURATION_THRESHOLD = 5*60
+EVENT_DURATION_THRESHOLD = 5*60 
 last_event_time = {}
-
 global satellite
 global tles
 satellites = []
@@ -27,7 +28,7 @@ except Exception as e:
     print(e)
 
 try:
-     with open("TEST-STATIONS.csv", newline='') as csvfile:
+     with open("STATIONS.csv", newline='') as csvfile:
           csv_reader = csv.reader(csvfile)
           observatories = tuple(tuple(row) for row in csv_reader)
           print(f"{len(observatories)} observatories loaded successfully.")
@@ -82,9 +83,13 @@ def updateTLE():
 
 while True:
     current_time = tm.time()
+    current_time_utc = datetime.now(timezone.utc).timestamp()
     if current_time - last_tle_update >= 3600: #time is seconds
          updateTLE()
          last_tle_update = current_time
+    if current_time - last_mag_update >= 30:
+         im.checkData()
+         last_mag_update = current_time
     
     ts = load.timescale()
     time = ts.now()
@@ -104,7 +109,7 @@ while True:
         if distance <= DEG_MARGIN * 111:  # Convert degrees to approximate km (1 degree ~ 111 km)
             print(f"Satellite {satellite.name} is within 2 degrees of the {iaga} station")
             key = (satellite.model.satnum, iaga)
-            if key not in last_event_time or current_time - last_event_time[key] >= EVENT_DURATION_THRESHOLD:
+            if key not in last_event_time or current_time_utc - last_event_time[key] >= EVENT_DURATION_THRESHOLD:
                obs = {
                     "IAGA": iaga,
                     "Name": name,
@@ -116,10 +121,7 @@ while True:
                     "Name": satellite.name
                }
                tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now close to {name} ({iaga}) observatory.")
-               saveEvent(current_time, obs, sat, tweetId)
-               last_event_time[key] = current_time
-     
-
-        
+               saveEvent(current_time_utc, obs, sat, tweetId)
+               last_event_time[key] = current_time_utc
     print("================================================")
     tm.sleep(5) 
