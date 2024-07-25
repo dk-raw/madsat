@@ -87,8 +87,8 @@ while True:
     if current_time - last_tle_update >= 3600: #time is seconds
          updateTLE()
          last_tle_update = current_time
-    if current_time - last_mag_update >= 30:
-         im.checkData()
+    if current_time - last_mag_update >= 900:
+         im.updateEvents()
          last_mag_update = current_time
     
     ts = load.timescale()
@@ -120,7 +120,7 @@ while True:
                     "ID": satellite.model.satnum,
                     "Name": satellite.name
                }
-               tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now close to {name} ({iaga}) observatory.")
+               tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory.")
                saveEvent(current_time_utc, obs, sat, tweetId)
                last_event_time[key] = current_time_utc
     print("================================================")
