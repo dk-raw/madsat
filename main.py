@@ -23,7 +23,7 @@ try:
           csv_reader = csv.reader(csvfile)
           for row in csv_reader:
                satellites.append(row[0])
-     print(f"{len(satellites)} satellites loaded successfully.")
+     print(f"{len(satellites)} satellite(s) loaded successfully.")
 except Exception as e:
     print(e)
 
@@ -41,7 +41,7 @@ try:
           res = requests.get(url)
           tle = res.text.splitlines()
           tles.append(tle)
-     print(f"{len(tles)} TLEs fetched successfully.")
+     print(f"{len(tles)} TLE(s) fetched successfully.")
 except Exception as e:
      print(e)
 
@@ -57,9 +57,9 @@ def haversine(lat1, lon1, lat2, lon2):
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
         return round(R * c,1)
 
-def saveEvent(time, observatory, sat, id):
+def saveEvent(time, observatory, sat, tweetId):
      eventId = uuid.uuid4()
-     eventData = f'{eventId},{time},{observatory["IAGA"]},{observatory["Name"]},{observatory["Lat"]},{observatory["Lon"]},{sat["ID"]},{sat["Name"]},False,{id}\n'
+     eventData = f'{eventId},{time},{observatory["IAGA"]},{observatory["Name"]},{observatory["Lat"]},{observatory["Lon"]},{sat["ID"]},{sat["Name"]},False,{tweetId}\n'
      try:
           with open("events.txt", 'a') as file:
                file.write(eventData)
@@ -84,11 +84,11 @@ def updateTLE():
 while True:
     current_time = tm.time()
     current_time_utc = datetime.now(timezone.utc).timestamp()
-    if current_time - last_tle_update >= 3600: #time is seconds
+    if current_time - last_tle_update >= 36000: #time is seconds
          updateTLE()
          last_tle_update = current_time
-    if current_time - last_mag_update >= 900:
-         im.updateEvents()
+    if current_time - last_mag_update >= 30:
+         im.checkEvents()
          last_mag_update = current_time
     
     ts = load.timescale()
@@ -120,7 +120,7 @@ while True:
                     "ID": satellite.model.satnum,
                     "Name": satellite.name
                }
-               tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory.")
+               tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory at {datetime.fromtimestamp(float(current_time_utc), tz=timezone.utc)} UTC")
                saveEvent(current_time_utc, obs, sat, tweetId)
                last_event_time[key] = current_time_utc
     print("================================================")
