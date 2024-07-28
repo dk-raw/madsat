@@ -5,7 +5,7 @@ from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 
-url = 'https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode=IZN&samplesPerDay=minute&publicationState=Best%20available&dataStartDate=2024-07-26&dataDuration=1&orientation=HDZF'
+url = 'https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode=IZN&samplesPerDay=minute&publicationState=Best%20available&dataStartDate=2024-07-28&dataDuration=1&orientation=HDZF'
 response = requests.get(url)
 
 root = json.loads(response.text)

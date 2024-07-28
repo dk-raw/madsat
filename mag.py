@@ -14,14 +14,14 @@ def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetim
     print(f"Observatory {iaga} has updated data for event {eventId}.\nGrabbing data...")
     #get data, process data, reply to tweet, change status to True
     url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode={iaga}&samplesPerDay=minute&publicationState=Best%20available&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&orientation=XYZS"
-    print(url)
     res = requests.get(url)
     if res.status_code == 200:
         root = json.loads(res.text)
         raw_y_values = root["ranges"]["Y"]["values"]
         y_values = []
         for raw_y_value in raw_y_values:
-            y_values.append(float(raw_y_value))
+            if raw_y_value is not None:
+                y_values.append(float(raw_y_value))
         processed = anomalies(y_values)
         graph(processed, eventId, iaga, obs_name, event_year, event_month, event_day)
         image_id = twitter.upload(f"temp/image-{eventId}.png")
