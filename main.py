@@ -82,7 +82,7 @@ while True:
     if current_time - last_tle_update >= 36000: #time is seconds
          updateTLE()
          last_tle_update = current_time
-    if current_time - last_mag_update >= 900:
+    if current_time - last_mag_update >= 20:
          im.checkEvents()
          last_mag_update = current_time
     
