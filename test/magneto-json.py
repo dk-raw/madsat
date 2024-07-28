@@ -3,8 +3,9 @@ import requests
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
+import matplotlib.pyplot as plt
 
-url = 'https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode=BDV&samplesPerDay=minute&publicationState=Best%20available&dataStartDate=2024-07-22&dataDuration=1&orientation=Native'
+url = 'https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode=IZN&samplesPerDay=minute&publicationState=Best%20available&dataStartDate=2024-07-26&dataDuration=1&orientation=HDZF'
 response = requests.get(url)
 
 root = json.loads(response.text)
@@ -13,7 +14,7 @@ timestamps = []
 values = []
 
 timestamps_raw = root["domain"]["axes"]["t"]["values"]
-values_raw = root["ranges"]["Y"]["values"]
+values_raw = root["ranges"]["H"]["values"]
 
 for timestamp in timestamps_raw:
     timestamps.append(timestamp)
@@ -50,6 +51,9 @@ for m in range(2859):
             if abs(c) >= th:
                 r += 1
     results[m] = r  # save probability
+
+plt.plot(results)
+plt.show()
 
 print('Done')
 

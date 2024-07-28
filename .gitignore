@@ -1,5 +1,6 @@
 events.txt
 .env
 /__pycache__
+/test
 /temp
 "events.txt" 

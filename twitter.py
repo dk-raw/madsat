@@ -25,7 +25,6 @@ def tweet(content):
     res = clientV2.create_tweet(
         text=content
     )
-    print(f"https://twitter.com/user/status/{res.data['id']}")
     return res.data['id']
 
 def reply(content, id, media_id):
@@ -34,7 +33,6 @@ def reply(content, id, media_id):
         in_reply_to_tweet_id=id,
         media_ids=media_id
     )
-    print(f"https://twitter.com/user/status/{res.data['id']}")
     return res.data['id']
 
 def upload(filename):
