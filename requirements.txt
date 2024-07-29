@@ -42,8 +42,7 @@ Pygments==2.17.2
 pyparsing==3.1.1
 python-dateutil==2.8.2
 python-dotenv==1.0.1
-pytz==2023.3.post1
-pywin32==306
+pytz==2023.3.post1W
 pyzmq==25.1.2
 requests==2.32.3
 requests-oauthlib==1.3.1
