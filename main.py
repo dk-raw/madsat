@@ -1,5 +1,5 @@
 import requests
-from skyfield.api import EarthSatellite, Topos, load
+from skyfield.api import EarthSatellite, load
 from datetime import datetime, timezone
 import numpy as np
 import time as tm
@@ -8,11 +8,18 @@ import csv
 import twitter
 import mag as im
 import logging
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 last_tle_update = last_mag_update = tm.time()
 DEG_MARGIN = 2
-EVENT_DURATION_THRESHOLD = 5*60 #random value larger thatn 1 minute
+EVENT_DURATION_THRESHOLD = 5*60
+TIME_BETWEEN_EVENT_CHECKS = int(os.getenv("time_between_event_checks"))
+TIME_BETWEEN_TLE_UPDATES = int(os.getenv("time_between_tle_updates"))
 LOGGER_FORMAT = "%(levelname)s : %(asctime)s : %(message)s"
+
 last_event_time = {}
 global satellite
 global tles
@@ -135,10 +142,10 @@ while True:
                          saveEvent(current_time_utc, obs, sat, tweetId)
                          last_event_time[key] = current_time_utc
      #print("================================================")
-     if current_time - last_tle_update >= 36000: #time is seconds
+     if current_time - last_tle_update >= TIME_BETWEEN_TLE_UPDATES: #time is seconds
           updateTLE()
           last_tle_update = current_time
-     if current_time - last_mag_update >= 20:
+     if current_time - last_mag_update >= TIME_BETWEEN_EVENT_CHECKS:
           im.checkEvents()
           last_mag_update = current_time
      tm.sleep(5) 
