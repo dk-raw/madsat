@@ -27,6 +27,8 @@ def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetim
             for raw_y_value in raw_y_values:
                 if raw_y_value is not None:
                     y_values.append(float(raw_y_value))
+                else:
+                    y_values.append(0)
             for raw_datetime in raw_datetimes:
                 datetimes.append(raw_datetime)
 
