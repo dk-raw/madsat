@@ -104,7 +104,7 @@ def updateTLE():
           else:
                logger.info("Using previously fetched TLEs.")
      except Exception as e:
-          logger.critical(e)
+          logger.error(e)
 
 while True:
     try:

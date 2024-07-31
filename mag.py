@@ -154,6 +154,3 @@ def resolveEvent(id):
     except Exception as e:
         logger.critical(e)
         exit(1)
-
-
-checkEvents()
