@@ -81,7 +81,7 @@ def checkEvents():
                 else:
                     #Case where there as some data
                     if root["data"][0]["days"][0]["gap_start_times"]: #if there is a gap in the data
-                        date_string=root["data"][0]["days"][0]["gap_start_times"][0]
+                        date_string=root["data"][0]["days"][0]["gap_start_times"][-1]
                         last_obs_update_utc=datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
                         if last_obs_update_utc > float(eventTime):
                             updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetime_utc, tweetId, obs_name, float(eventTime))
