@@ -138,7 +138,7 @@ while True:
                               "ID": satellite.model.satnum,
                               "Name": satellite.name
                          }
-                         tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory at {datetime.fromtimestamp(float(current_time_utc), tz=timezone.utc)} UTC")
+                         tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory at {datetime.fromtimestamp(round(float(current_time_utc),1), tz=timezone.utc)} UTC")
                          saveEvent(current_time_utc, obs, sat, tweetId)
                          last_event_time[key] = current_time_utc
      #print("================================================")
