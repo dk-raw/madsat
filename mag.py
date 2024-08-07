@@ -83,7 +83,7 @@ def checkEvents():
                     if root["data"][0]["days"][0]["gap_start_times"]: #if there is a gap in the data
                         date_string=root["data"][0]["days"][0]["gap_start_times"][-1]
                         last_obs_update_utc=datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
-                        if last_obs_update_utc > float(eventTime):
+                        if last_obs_update_utc - float(eventTime) > 600: #10 minute margin
                             updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetime_utc, tweetId, obs_name, float(eventTime))
                         else:
                             logger.info(f"Observatory {iaga} has no updated data for event {eventId}.")
