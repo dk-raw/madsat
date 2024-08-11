@@ -21,4 +21,4 @@ Propabilities of magnetic anomalies are calculated using [Richard Cordaro's](htt
 [madsat-api](https://github.com/dk-raw/madsat-api) has endpoints for the satellite passage data, logs and application status.
 
 ## Donations
-Please consider donating to [PayPal](https://paypal.me/ddkatsios) to help maintain this and other similar open-source non-profit projects.
+Please consider donating to [PayPal](https://paypal.me/ddkatsios) to help maintain this and other similar open-source science projects.
