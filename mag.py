@@ -9,6 +9,7 @@ import json
 import twitter
 import pandas as pd
 import logging
+import os
 
 logger = logging.getLogger("liggma")
 
@@ -41,7 +42,7 @@ def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetim
             end_time = center_time + time_window / 2
             filtered_df = df[(df["time"] >= start_time) & (df["time"] <= end_time)]
             filtered_df.set_index("time", inplace=True)
-            processed = anomalies(filtered_df)
+            processed = anomalies(filtered_df, eventId)
             graph(processed, eventId, iaga, obs_name, event_year, event_month, event_day, center_time)
             image_id = twitter.upload(f"temp/image-{eventId}.png")
             twitter.reply(f"{iaga} observatory data for this event at {event_datetime_utc} UTC",tweetId, [str(image_id)])
@@ -95,7 +96,7 @@ def checkEvents():
         logger.critical(e)
         exit(1)
 
-def anomalies(df):
+def anomalies(df,id):
     try:
         df_resampled = df.resample("30S").interpolate("linear")
         df_resampled.reset_index(inplace=True)
@@ -119,6 +120,7 @@ def anomalies(df):
                         r += 1
             results[m] = r  # save probability
         df_resampled["value"] = results
+        df_resampled.to_csv(f"temp/data-{id}.csv", header=False, index=False)
         return df_resampled
     except Exception as e:
         logger.critical(e)
@@ -151,6 +153,7 @@ def resolveEvent(id):
         df = pd.read_csv('events.txt',header=None)
         df.loc[(df[0] == id), 8] = "True"
         df.to_csv('events.txt', index=False, header=None)
+        os.remove(f"temp/image-{id}.png")
     except Exception as e:
         logger.critical(e)
         exit(1)
