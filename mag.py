@@ -68,7 +68,6 @@ def checkEvents():
     logger.info("Updating events...")
     try:
         events = eventsCollection.find({"resolved": False})
-        logger.info(f"{eventsCollection.count_documents({"resolved": False})} unresolved event(s) loaded successfully.")
         for event in events:
             current_time_utc = datetime.now(timezone.utc).timestamp()
             # if current_time_utc - event["timestamp"] > 172800: # 2 days
