@@ -41,13 +41,19 @@ def tweet(content):
         logger.critical(e)
         exit(1)
 
-def reply(content, id, media_id):
+def reply(content, id, media_id=""):
     try:
-        res = clientV2.create_tweet(
-            text=content,
-            in_reply_to_tweet_id=id,
-            media_ids=media_id
-        )
+        if media_id:
+            res = clientV2.create_tweet(
+                text=content,
+                in_reply_to_tweet_id=id,
+                media_ids=media_id
+            )
+        else:
+            res = clientV2.create_tweet(
+                text=content,
+                in_reply_to_tweet_id=id
+            )
         return res.data['id']
     except Exception as e:
         logger.error(e)

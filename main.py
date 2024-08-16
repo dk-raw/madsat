@@ -9,6 +9,7 @@ import twitter
 import mag as im
 import logging
 import os
+import pymongo
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,6 +29,15 @@ tles = []
 
 logging.basicConfig(filename="liggma.log", level=logging.INFO, format=LOGGER_FORMAT)
 logger = logging.getLogger("liggma")
+
+try:
+     client = pymongo.MongoClient("localhost",27017)
+     db = client["madsat"]
+     global eventsCollection
+     eventsCollection = db["events"]
+except Exception as e:
+     logger.critical(e)
+     exit(1)
 
 try:
      with open("SATELLITES.csv", newline='') as csvfile:
@@ -77,11 +87,19 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def saveEvent(time, observatory, sat, tweetId):
      try:
-          eventId = uuid.uuid4()
-          eventData = f'{eventId},{round(time,1)},{observatory["IAGA"]},{observatory["Name"]},{observatory["Lat"]},{observatory["Lon"]},{sat["ID"]},{sat["Name"]},False,{tweetId}\n'
-          with open("events.txt", 'a') as file:
-               file.write(eventData)
-          logger.info(f"Event {eventId} saved successfully.")
+          eventDict = {
+               "timestamp": round(time,0),
+               "obsIAGA": observatory["IAGA"],
+               "obsName": observatory["Name"],
+               "obsLat": observatory["Lat"],
+               "obsLon": observatory["Lon"],
+               "satNORAD": sat["ID"],
+               "satName": sat["Name"],
+               "tweetID": tweetId,
+               "resolved": False
+          }
+          event = eventsCollection.insert_one(eventDict)
+          logger.info(f"Event {event.inserted_id} saved successfully.")
      except Exception as e:
           logger.critical(e)
           exit(1)

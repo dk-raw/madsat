@@ -10,8 +10,19 @@ import twitter
 import pandas as pd
 import logging
 import os
+import pymongo
+from bson.objectid import ObjectId
 
 logger = logging.getLogger("liggma")
+
+try:
+     client = pymongo.MongoClient("localhost",27017)
+     db = client["madsat"]
+     global eventsCollection
+     eventsCollection = db["events"]
+except Exception as e:
+     logger.critical(e)
+     exit(1)
 
 def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetime_utc, tweetId, obs_name, eventTimestamp):
     logger.info(f"Observatory {iaga} has updated data for event {eventId}.\nGrabbing data...")
@@ -56,42 +67,41 @@ def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetim
 def checkEvents():
     logger.info("Updating events...")
     try:
-        with open("events.txt",mode='r', newline='') as csvfile:
-            events_arr = []
-            csv_reader = csv.reader(csvfile)
-            for row in csv_reader:
-                if row[8]=="False":
-                    events_arr.append(tuple(row))
-            events = tuple(events_arr)
-            logger.info(f"{len(events)} unresolved event(s) loaded successfully.")
-        for eventId,eventTime,iaga,obs_name,obs_lat,obs_lon,norad,sat_name,resolved,tweetId in events:
-            event_datetime_utc = datetime.fromtimestamp(float(eventTime), tz=timezone.utc)
+        events = eventsCollection.find({"resolved": False})
+        logger.info(f"{eventsCollection.count_documents({"resolved": False})} unresolved event(s) loaded successfully.")
+        for event in events:
+            current_time_utc = datetime.now(timezone.utc).timestamp()
+            # if current_time_utc - event["timestamp"] > 172800: # 2 days
+            #     twitter.reply(f"Event {event["_id"]} expired as there will be no data available.", event["tweetID"])
+            #     resolveEvent(event["_id"])
+            event_datetime_utc = datetime.fromtimestamp(event["timestamp"], tz=timezone.utc)
             event_day = event_datetime_utc.day
             event_month = event_datetime_utc.month
             event_year = event_datetime_utc.year
             #Get data directory in JSON to see when was the last update
-            url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={iaga}&samplesPerDay=minute&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
+            url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event["obsIAGA"]}&samplesPerDay=minute&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
             res = requests.get(url)
             # print(url)
             if res.status_code==200:
                 root = json.loads(res.text)
                 if root["data"][0]["embargo_applied"] == "true":
-                    logger.info(f"Data embargo applied for observatory {iaga}.")
+                    logger.info(f"Data embargo applied for observatory {event["obsIAGA"]}.")
+                    resolveEvent(event["_id"])
                 elif root["data"][0]["publication_state"] == "none":
-                    logger.info(f"No data for {iaga} at {event_year}-{event_month}-{event_day}.")
+                    logger.info(f"No data for {event["obsIAGA"]} at {event_year}-{event_month}-{event_day}.")
                 else:
                     #Case where there as some data
                     if root["data"][0]["days"][0]["gap_start_times"]: #if there is a gap in the data
                         date_string=root["data"][0]["days"][0]["gap_start_times"][-1]
                         last_obs_update_utc=datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
-                        if last_obs_update_utc - float(eventTime) > 600: #10 minute margin
-                            updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetime_utc, tweetId, obs_name, float(eventTime))
+                        if last_obs_update_utc - event["timestamp"] > 600: #10 minute margin
+                            updateEvent(event["_id"], event["obsIAGA"], event_year, event_month, event_day, event_datetime_utc, event["tweetID"], event["obsName"], event["timestamp"])
                         else:
-                            logger.info(f"Observatory {iaga} has no updated data for event {eventId}.")
+                            logger.info(f"Observatory {event["obsIAGA"]} has no updated data for event {event["_id"]}.")
                     elif root["data"][0]["days"][0]["samples_missing"] == 0:
-                        updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetime_utc, tweetId, obs_name, float(eventTime))
+                     updateEvent(event["_id"], event["obsIAGA"], event_year, event_month, event_day, event_datetime_utc, event["tweetID"], event["obsName"], event["timestamp"])
             else:
-                logger.error(f"Error fetching {iaga} observatory data directory with status code {res.status_code}.")
+                logger.error(f"Error fetching {event["obsIAGA"]} observatory data directory with status code {res.status_code}.")
     except Exception as e:
         logger.critical(e)
         exit(1)
@@ -150,9 +160,14 @@ def graph(df, eventId, iaga, obs_name, year, month, day, center_time):
 
 def resolveEvent(id):
     try:
-        df = pd.read_csv('events.txt',header=None)
-        df.loc[(df[0] == id), 8] = "True"
-        df.to_csv('events.txt', index=False, header=None)
+        eventsCollection.update_one({
+            "_id": ObjectId(id)
+        },
+        {
+            "$set": {
+                "resolved": True
+            }
+        })
         os.remove(f"temp/image-{id}.png")
     except Exception as e:
         logger.critical(e)
