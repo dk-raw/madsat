@@ -78,16 +78,16 @@ def checkEvents():
             event_month = event_datetime_utc.month
             event_year = event_datetime_utc.year
             #Get data directory in JSON to see when was the last update
-            url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event["obsIAGA"]}&samplesPerDay=minute&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
+            url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event['obsIAGA']}&samplesPerDay=minute&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
             res = requests.get(url)
             # print(url)
             if res.status_code==200:
                 root = json.loads(res.text)
                 if root["data"][0]["embargo_applied"] == "true":
-                    logger.info(f"Data embargo applied for observatory {event["obsIAGA"]}.")
+                    logger.info(f"Data embargo applied for observatory {event['obsIAGA']}.")
                     resolveEvent(event["_id"])
                 elif root["data"][0]["publication_state"] == "none":
-                    logger.info(f"No data for {event["obsIAGA"]} at {event_year}-{event_month}-{event_day}.")
+                    logger.info(f"No data for {event['obsIAGA']} at {event_year}-{event_month}-{event_day}.")
                 else:
                     #Case where there as some data
                     if root["data"][0]["days"][0]["gap_start_times"]: #if there is a gap in the data
@@ -96,11 +96,11 @@ def checkEvents():
                         if last_obs_update_utc - event["timestamp"] > 600: #10 minute margin
                             updateEvent(event["_id"], event["obsIAGA"], event_year, event_month, event_day, event_datetime_utc, event["tweetID"], event["obsName"], event["timestamp"])
                         else:
-                            logger.info(f"Observatory {event["obsIAGA"]} has no updated data for event {event["_id"]}.")
+                            logger.info(f"Observatory {event['obsIAGA']} has no updated data for event {event['_id']}.")
                     elif root["data"][0]["days"][0]["samples_missing"] == 0:
                      updateEvent(event["_id"], event["obsIAGA"], event_year, event_month, event_day, event_datetime_utc, event["tweetID"], event["obsName"], event["timestamp"])
             else:
-                logger.error(f"Error fetching {event["obsIAGA"]} observatory data directory with status code {res.status_code}.")
+                logger.error(f"Error fetching {event['obsIAGA']} observatory data directory with status code {res.status_code}.")
     except Exception as e:
         logger.critical(e)
         exit(1)
