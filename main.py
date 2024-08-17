@@ -3,7 +3,6 @@ from skyfield.api import EarthSatellite, load
 from datetime import datetime, timezone
 import numpy as np
 import time as tm
-import uuid 
 import csv
 import twitter
 import mag as im
@@ -156,7 +155,7 @@ while True:
                               "ID": satellite.model.satnum,
                               "Name": satellite.name
                          }
-                         tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory at {datetime.fromtimestamp(round(float(current_time_utc),1), tz=timezone.utc)} UTC")
+                         tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory at {datetime.fromtimestamp(round(float(current_time_utc),1), tz=timezone.utc).strftime("%Y-%m-%d %H:%M")} UTC")
                          saveEvent(current_time_utc, obs, sat, tweetId)
                          last_event_time[key] = current_time_utc
      #print("================================================")

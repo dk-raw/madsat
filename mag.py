@@ -24,10 +24,10 @@ except Exception as e:
      logger.critical(e)
      exit(1)
 
-def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetime_utc, tweetId, obs_name, eventTimestamp):
+def updateEvent(eventId, iaga, event_datetime, tweetId, obs_name, eventTimestamp):
     logger.info(f"Observatory {iaga} has updated data for event {eventId}.\nGrabbing data...")
     #get data, process data, reply to tweet, change status to True
-    url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode={iaga}&samplesPerDay=minute&publicationState=Best%20available&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&orientation=XYZS"
+    url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode={iaga}&samplesPerDay=minute&publicationState=Best%20available&dataStartDate={event_datetime.year}-{event_datetime.month}-{event_datetime.day}&dataDuration=1&orientation=XYZS"
     try:
         res = requests.get(url)
         if res.status_code == 200:
@@ -54,9 +54,9 @@ def updateEvent(eventId, iaga, event_year, event_month, event_day, event_datetim
             filtered_df = df[(df["time"] >= start_time) & (df["time"] <= end_time)]
             filtered_df.set_index("time", inplace=True)
             processed = anomalies(filtered_df, eventId)
-            graph(processed, eventId, iaga, obs_name, event_year, event_month, event_day, center_time)
+            graph(processed, eventId, iaga, obs_name, event_datetime, center_time)
             image_id = twitter.upload(f"temp/image-{eventId}.png")
-            twitter.reply(f"{iaga} observatory data for this event at {event_datetime_utc} UTC",tweetId, [str(image_id)])
+            twitter.reply(f"{iaga} observatory data for this event at {event_datetime.strftime("%Y-%m-%d %H:%M")} UTC",tweetId, [str(image_id)])
             resolveEvent(eventId)
             logger.info(f"Event {eventId} resolved.")
         else:
@@ -73,12 +73,9 @@ def checkEvents():
             # if current_time_utc - event["timestamp"] > 172800: # 2 days
             #     twitter.reply(f"Event {event["_id"]} expired as there will be no data available.", event["tweetID"])
             #     resolveEvent(event["_id"])
-            event_datetime_utc = datetime.fromtimestamp(event["timestamp"], tz=timezone.utc)
-            event_day = event_datetime_utc.day
-            event_month = event_datetime_utc.month
-            event_year = event_datetime_utc.year
+            event_datetime = datetime.fromtimestamp(event["timestamp"], tz=timezone.utc)
             #Get data directory in JSON to see when was the last update
-            url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event['obsIAGA']}&samplesPerDay=minute&dataStartDate={event_year}-{event_month}-{event_day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
+            url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event['obsIAGA']}&samplesPerDay=minute&dataStartDate={event_datetime.year}-{event_datetime.month}-{event_datetime.day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
             res = requests.get(url)
             # print(url)
             if res.status_code==200:
@@ -87,18 +84,18 @@ def checkEvents():
                     logger.info(f"Data embargo applied for observatory {event['obsIAGA']}.")
                     resolveEvent(event["_id"])
                 elif root["data"][0]["publication_state"] == "none":
-                    logger.info(f"No data for {event['obsIAGA']} at {event_year}-{event_month}-{event_day}.")
+                    logger.info(f"No data for {event['obsIAGA']} at {event_datetime.year}-{event_datetime.month}-{event_datetime.day}.")
                 else:
                     #Case where there as some data
                     if root["data"][0]["days"][0]["gap_start_times"]: #if there is a gap in the data
                         date_string=root["data"][0]["days"][0]["gap_start_times"][-1]
                         last_obs_update_utc=datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
                         if last_obs_update_utc - event["timestamp"] > 600: #10 minute margin
-                            updateEvent(event["_id"], event["obsIAGA"], event_year, event_month, event_day, event_datetime_utc, event["tweetID"], event["obsName"], event["timestamp"])
+                            updateEvent(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
                         else:
                             logger.info(f"Observatory {event['obsIAGA']} has no updated data for event {event['_id']}.")
                     elif root["data"][0]["days"][0]["samples_missing"] == 0:
-                     updateEvent(event["_id"], event["obsIAGA"], event_year, event_month, event_day, event_datetime_utc, event["tweetID"], event["obsName"], event["timestamp"])
+                     updateEvent(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
             else:
                 logger.error(f"Error fetching {event['obsIAGA']} observatory data directory with status code {res.status_code}.")
     except Exception as e:
@@ -135,7 +132,7 @@ def anomalies(df,id):
         logger.critical(e)
         exit(1)
 
-def graph(df, eventId, iaga, obs_name, year, month, day, center_time):
+def graph(df, eventId, iaga, obs_name, datetime, center_time):
     try:
         logger.info("Starting to plot data...")
         # Plotting
@@ -149,7 +146,7 @@ def graph(df, eventId, iaga, obs_name, year, month, day, center_time):
         plt.axvline(x=center_time, color="g", linestyle="--")
         plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
         plt.ylim(bottom=0)
-        plt.xlabel(f"{year}-{month}-{day}")
+        plt.xlabel(f"{datetime.year}-{datetime.month}-{datetime.day}")
         plt.ylabel("Relative Propability")
         plt.title(f"{iaga} - {obs_name}")
         plt.savefig(f"temp/image-{eventId}.png")
