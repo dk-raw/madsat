@@ -56,7 +56,7 @@ def updateEvent(eventId, iaga, event_datetime, tweetId, obs_name, eventTimestamp
             processed = anomalies(filtered_df, eventId)
             graph(processed, eventId, iaga, obs_name, event_datetime, center_time)
             image_id = twitter.upload(f"temp/image-{eventId}.png")
-            twitter.reply(f"{iaga} observatory data for this event at {event_datetime.strftime("%Y-%m-%d %H:%M")} UTC",tweetId, [str(image_id)])
+            twitter.reply(f"{iaga} observatory data for this event at {event_datetime.strftime('%Y-%m-%d %H:%M')} UTC",tweetId, [str(image_id)])
             resolveEvent(eventId)
             logger.info(f"Event {eventId} resolved.")
         else:
