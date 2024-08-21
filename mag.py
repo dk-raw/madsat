@@ -25,11 +25,11 @@ except Exception as e:
      sys.exit()
 
 def update_event(event_id, iaga, event_datetime, tweet_id, obs_name, event_timestamp):
-    logger.info(f"Observatory {iaga} has updated data for event {event_id}.\nGrabbing data...")
+    logger.info("Observatory %s has updated data for event %s.\nGrabbing data...", iaga, event_id)
     #get data, process data, reply to tweet, change status to True
     url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode={iaga}&samplesPerDay=minute&publicationState=Best%20available&dataStartDate={event_datetime.year}-{event_datetime.month}-{event_datetime.day}&dataDuration=1&orientation=XYZS"
     try:
-        res = requests.get(url)
+        res = requests.get(url, timeout=5)
         if res.status_code == 200:
             root = json.loads(res.text)
             raw_y_values = root["ranges"]["Y"]["values"]
@@ -58,9 +58,9 @@ def update_event(event_id, iaga, event_datetime, tweet_id, obs_name, event_times
             image_id = twitter.upload(f"temp/image-{event_id}.png")
             twitter.reply(f"{iaga} observatory data for this event at {event_datetime.strftime('%Y-%m-%d %H:%M')} UTC",tweet_id, [str(image_id)])
             resolve_event(event_id)
-            logger.info(f"Event {event_id} resolved.")
+            logger.info("Event %s resolved.", event_id)
         else:
-            logger.error(f"Error fetching {iaga} observatory data with status code {res.status_code}.")
+            logger.error("Error fetching %s observatory data with status code %s.", iaga, res.status_code)
     except Exception as e:
         logger.error(e)
 
@@ -76,15 +76,15 @@ def check_events():
             event_datetime = datetime.fromtimestamp(event["timestamp"], tz=timezone.utc)
             #Get data directory in JSON to see when was the last update
             url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event['obsIAGA']}&samplesPerDay=minute&dataStartDate={event_datetime.year}-{event_datetime.month}-{event_datetime.day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
-            res = requests.get(url)
+            res = requests.get(url, timeout=5)
             # print(url)
             if res.status_code==200:
                 root = json.loads(res.text)
                 if root["data"][0]["embargo_applied"] == "true":
-                    logger.info(f"Data embargo applied for observatory {event['obsIAGA']}.")
+                    logger.info("Data embargo applied for observatory %s.", event['obsIAGA'])
                     resolve_event(event["_id"])
                 elif root["data"][0]["publication_state"] == "none":
-                    logger.info(f"No data for {event['obsIAGA']} at {event_datetime.year}-{event_datetime.month}-{event_datetime.day}.")
+                    logger.info("No data for %s at %s-%s-%s.", event['obsIAGA'], event_datetime.year, event_datetime.month, event_datetime.day)
                 else:
                     #Case where there as some data
                     if root["data"][0]["days"][0]["gap_start_times"]: #if there is a gap in the data
@@ -93,11 +93,11 @@ def check_events():
                         if last_obs_update_utc - event["timestamp"] > 600: #10 minute margin
                             update_event(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
                         else:
-                            logger.info(f"Observatory {event['obsIAGA']} has no updated data for event {event['_id']}.")
+                            logger.info("Observatory %s has no updated data for event %s.", event['obsIAGA'], event['_id'])
                     elif root["data"][0]["days"][0]["samples_missing"] == 0:
                      update_event(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
             else:
-                logger.error(f"Error fetching {event['obsIAGA']} observatory data directory with status code {res.status_code}.")
+                logger.error("Error fetching %s observatory data directory with status code %s.", event['obsIAGA'], res.status_code)
     except Exception as e:
         logger.critical(e)
         sys.exit(1)
@@ -114,9 +114,9 @@ def check_expired_events(current_time):
                 "resolved": True
             }
         })
-        logger.info(f"Resolved {res.modified_count} expired events.")
+        logger.info("Resolved %s expired events.", res.modified_count)
     except Exception as e:
-        logger.error(f"Error checking for expired events: {e}")
+        logger.error("Error checking for expired events: %s", e)
 
 def anomalies(df,id):
     try:

@@ -44,7 +44,7 @@ try:
           csv_reader = csv.reader(csvfile)
           for row in csv_reader:
                satellites.append(row[0])
-          logger.info(f"{len(satellites)} satellite(s) loaded successfully.")
+          logger.info("%s satellite(s) loaded successfully.", len(satellites))
 except Exception as e:
      logger.critical(e)
      sys.exit(1)
@@ -53,7 +53,7 @@ try:
      with open("STATIONS.csv", newline='') as csvfile:
           csv_reader = csv.reader(csvfile)
           observatories = tuple(tuple(row) for row in csv_reader)
-          logger.info(f"{len(observatories)} observatories loaded successfully.")
+          logger.info("%s observatories loaded successfully.", len(observatories))
 except Exception as e:
      logger.critical(e)
      sys.exit(1)
@@ -61,14 +61,14 @@ except Exception as e:
 try:
      for sat in satellites:
           url = f"https://celestrak.com/NORAD/elements/gp.php?CATNR={sat}"
-          res = requests.get(url)
+          res = requests.get(url, timeout=5)
           if res.status_code == 200:
                tle = res.text.splitlines()
                tles.append(tle)
           else:
-               logger.critical(f"Error fetching initial TLE data for satelite {sat} with status code {res.status_code}.")
+               logger.critical("Error fetching initial TLE data for satelite %s with status code %s.", sat, res.status_code)
                sys.exit(1)
-     logger.info(f"{len(tles)} TLE(s) fetched successfully.")
+     logger.info("%s TLE(s) fetched successfully.", len(tles))
 except Exception as e:
      logger.critical(e)
      sys.exit(1)
@@ -99,7 +99,7 @@ def save_event(time, observatory, sat, tweet_id):
                "resolved": False
           }
           event = eventsCollection.insert_one(event_dict)
-          logger.info(f"Event {event.inserted_id} saved successfully.")
+          logger.info("Event %s saved successfully.", event.inserted_id)
      except Exception as e:
           logger.critical(e)
           sys.exit(1)
@@ -110,15 +110,15 @@ def update_tles():
           updated_tles = []
           for sat in satellites:
                url = f"https://celestrak.com/NORAD/elements/gp.php?CATNR={sat}"
-               res = requests.get(url)
+               res = requests.get(url, timeout=5)
                if res.status_code == 200:
                     tle = res.text.splitlines()
                     updated_tles.append(tle)
                else:
-                    logger.error(f"Error fetching updated TLE data for satelite {sat} with status code {res.status_code}.")
+                    logger.error("Error fetching updated TLE data for satelite %s with status code %s.", sat, res.status_code)
           if len(updated_tles) == len(tles):
                tles = updated_tles
-               logger.info(f"{len(updated_tles)} TLEs updated successfully.")
+               logger.info("%s TLEs updated successfully.", len(updated_tles))
           else:
                logger.info("Using previously fetched TLEs.")
      except Exception as e:
@@ -145,7 +145,7 @@ while True:
                     #print(f"Satellite {satellite.name} is within 2 degrees of the {iaga} station")
                     key = (satellite.model.satnum, iaga)
                     if key not in last_event_time or current_time_utc - last_event_time[key] >= EVENT_DURATION_THRESHOLD:
-                         logger.info(f"Satellite {satellite.name} is within 2 degrees of the {iaga} station")
+                         logger.info("Satellite %s is within 2 degrees of the %s station", satellite.name, iaga)
                          obs = {
                               "IAGA": iaga,
                               "Name": name,
