@@ -1,0 +1,15 @@
+[MESSAGES CONTROL]
+
+disable=duplicate-code,
+        ungrouped-imports,
+        inconsistent-return-statements,
+        broad-exception-caught,
+        missing-function-docstring,
+        redefined-builtin,
+        redefined-outer-name,
+        global-at-module-level,
+        bad-indentation,
+        line-too-long,
+        too-many-nested-blocks,
+        too-many-arguments,
+        too-many-locals

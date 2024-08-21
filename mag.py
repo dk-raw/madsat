@@ -1,31 +1,31 @@
-import numpy as np
-from scipy.stats import pearsonr
-import csv
-import requests
+import sys
+import os
+import logging
+import json
 from datetime import datetime, timezone
+import requests
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import json 
-import twitter
 import pandas as pd
-import logging
-import os
 import pymongo
 from bson.objectid import ObjectId
+import numpy as np
+from scipy.stats import pearsonr
+import twitter
 
 logger = logging.getLogger("liggma")
 
 try:
      client = pymongo.MongoClient("localhost",27017)
      db = client["madsat"]
-     global eventsCollection
+     #global eventsCollection
      eventsCollection = db["events"]
 except Exception as e:
      logger.critical(e)
-     exit(1)
+     sys.exit()
 
-def updateEvent(eventId, iaga, event_datetime, tweetId, obs_name, eventTimestamp):
-    logger.info(f"Observatory {iaga} has updated data for event {eventId}.\nGrabbing data...")
+def update_event(event_id, iaga, event_datetime, tweet_id, obs_name, event_timestamp):
+    logger.info(f"Observatory {iaga} has updated data for event {event_id}.\nGrabbing data...")
     #get data, process data, reply to tweet, change status to True
     url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&format=COVJSON&testObsys=0&observatoryIagaCode={iaga}&samplesPerDay=minute&publicationState=Best%20available&dataStartDate={event_datetime.year}-{event_datetime.month}-{event_datetime.day}&dataDuration=1&orientation=XYZS"
     try:
@@ -47,24 +47,24 @@ def updateEvent(eventId, iaga, event_datetime, tweetId, obs_name, eventTimestamp
             df_data = {"time": datetimes, "value": y_values}
             df = pd.DataFrame(df_data)
             df["time"] = pd.to_datetime(df["time"], utc=True)
-            center_time = pd.to_datetime(eventTimestamp, unit='s', utc=True)
+            center_time = pd.to_datetime(event_timestamp, unit='s', utc=True)
             time_window = pd.Timedelta(hours=2)
             start_time = center_time - time_window / 2
             end_time = center_time + time_window / 2
             filtered_df = df[(df["time"] >= start_time) & (df["time"] <= end_time)]
             filtered_df.set_index("time", inplace=True)
-            processed = anomalies(filtered_df, eventId)
-            graph(processed, eventId, iaga, obs_name, event_datetime, center_time)
-            image_id = twitter.upload(f"temp/image-{eventId}.png")
-            twitter.reply(f"{iaga} observatory data for this event at {event_datetime.strftime('%Y-%m-%d %H:%M')} UTC",tweetId, [str(image_id)])
-            resolveEvent(eventId)
-            logger.info(f"Event {eventId} resolved.")
+            processed = anomalies(filtered_df, event_id)
+            graph(processed, event_id, iaga, obs_name, event_datetime, center_time)
+            image_id = twitter.upload(f"temp/image-{event_id}.png")
+            twitter.reply(f"{iaga} observatory data for this event at {event_datetime.strftime('%Y-%m-%d %H:%M')} UTC",tweet_id, [str(image_id)])
+            resolve_event(event_id)
+            logger.info(f"Event {event_id} resolved.")
         else:
             logger.error(f"Error fetching {iaga} observatory data with status code {res.status_code}.")
     except Exception as e:
         logger.error(e)
 
-def checkEvents():
+def check_events():
     logger.info("Updating events...")
     try:
         events = eventsCollection.find({"resolved": False})
@@ -72,7 +72,7 @@ def checkEvents():
             current_time_utc = datetime.now(timezone.utc).timestamp()
             # if current_time_utc - event["timestamp"] > 172800: # 2 days
             #     twitter.reply(f"Event {event["_id"]} expired as there will be no data available.", event["tweetID"])
-            #     resolveEvent(event["_id"])
+            #     resolve_event(event["_id"])
             event_datetime = datetime.fromtimestamp(event["timestamp"], tz=timezone.utc)
             #Get data directory in JSON to see when was the last update
             url = f"https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetDataDirectory&observatoryIagaCodeList={event['obsIAGA']}&samplesPerDay=minute&dataStartDate={event_datetime.year}-{event_datetime.month}-{event_datetime.day}&dataDuration=1&publicationState=adj-or-rep&options=showgaps&format=json"
@@ -82,7 +82,7 @@ def checkEvents():
                 root = json.loads(res.text)
                 if root["data"][0]["embargo_applied"] == "true":
                     logger.info(f"Data embargo applied for observatory {event['obsIAGA']}.")
-                    resolveEvent(event["_id"])
+                    resolve_event(event["_id"])
                 elif root["data"][0]["publication_state"] == "none":
                     logger.info(f"No data for {event['obsIAGA']} at {event_datetime.year}-{event_datetime.month}-{event_datetime.day}.")
                 else:
@@ -91,16 +91,32 @@ def checkEvents():
                         date_string=root["data"][0]["days"][0]["gap_start_times"][-1]
                         last_obs_update_utc=datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
                         if last_obs_update_utc - event["timestamp"] > 600: #10 minute margin
-                            updateEvent(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
+                            update_event(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
                         else:
                             logger.info(f"Observatory {event['obsIAGA']} has no updated data for event {event['_id']}.")
                     elif root["data"][0]["days"][0]["samples_missing"] == 0:
-                     updateEvent(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
+                     update_event(event["_id"], event["obsIAGA"], event_datetime, event["tweetID"], event["obsName"], event["timestamp"])
             else:
                 logger.error(f"Error fetching {event['obsIAGA']} observatory data directory with status code {res.status_code}.")
     except Exception as e:
         logger.critical(e)
-        exit(1)
+        sys.exit(1)
+
+def check_expired_events(current_time):
+    try:
+        res = eventsCollection.update_many({
+            "timestamp": {
+                "$lt": current_time - 345600 #3 days
+            }
+        },
+        {
+            "$set": {
+                "resolved": True
+            }
+        })
+        logger.info(f"Resolved {res.modified_count} expired events.")
+    except Exception as e:
+        logger.error(f"Error checking for expired events: {e}")
 
 def anomalies(df,id):
     try:
@@ -130,7 +146,7 @@ def anomalies(df,id):
         return df_resampled
     except Exception as e:
         logger.critical(e)
-        exit(1)
+        sys.exit(1)
 
 def graph(df, eventId, iaga, obs_name, datetime, center_time):
     try:
@@ -152,9 +168,9 @@ def graph(df, eventId, iaga, obs_name, datetime, center_time):
         plt.savefig(f"temp/image-{eventId}.png")
     except Exception as e:
         logger.critical(e)
-        exit(1)
+        sys.exit(1)
 
-def resolveEvent(id):
+def resolve_event(id):
     try:
         eventsCollection.update_one({
             "_id": ObjectId(id)
@@ -167,4 +183,4 @@ def resolveEvent(id):
         os.remove(f"temp/image-{id}.png")
     except Exception as e:
         logger.critical(e)
-        exit(1)
+        sys.exit(1)

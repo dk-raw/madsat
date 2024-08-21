@@ -1,8 +1,9 @@
-import tweepy
+import sys
 import os
+import logging
+import tweepy
 from dotenv import load_dotenv
 import tweepy.client
-import logging
 
 logger = logging.getLogger("liggma")
 
@@ -14,8 +15,8 @@ try:
     access_token_secret = os.getenv("access_token_secret")
 except Exception as e:
     logger.critical(e)
-    exit(1)
-    
+    sys.exit(1)
+
 try:
     clientV2 = tweepy.Client(
         consumer_key=consumer_key, consumer_secret=consumer_secret,
@@ -29,7 +30,7 @@ try:
     api = tweepy.API(authV1)
 except Exception as e:
     logger.critical(e)
-    exit(1)
+    sys.exit(1)
 
 def tweet(content):
     try:
@@ -39,7 +40,7 @@ def tweet(content):
         return res.data['id']
     except Exception as e:
         logger.critical(e)
-        exit(1)
+        sys.exit(1)
 
 def reply(content, id, media_id=""):
     try:

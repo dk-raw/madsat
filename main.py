@@ -1,19 +1,20 @@
-import requests
-from skyfield.api import EarthSatellite, load
+import sys
+import os
+import logging
 from datetime import datetime, timezone
-import numpy as np
 import time as tm
 import csv
+import requests
+from skyfield.api import EarthSatellite, load
+import pymongo
+import numpy as np
+from dotenv import load_dotenv
 import twitter
 import mag as im
-import logging
-import os
-import pymongo
-from dotenv import load_dotenv
 
 load_dotenv()
 
-last_tle_update = last_mag_update = tm.time()
+last_tle_update = last_mag_update = last_expired_events_check = tm.time()
 DEG_MARGIN = 2
 EVENT_DURATION_THRESHOLD = 5*60
 TIME_BETWEEN_EVENT_CHECKS = int(os.getenv("time_between_event_checks"))
@@ -36,7 +37,7 @@ try:
      eventsCollection = db["events"]
 except Exception as e:
      logger.critical(e)
-     exit(1)
+     sys.exit(1)
 
 try:
      with open("SATELLITES.csv", newline='') as csvfile:
@@ -46,7 +47,7 @@ try:
           logger.info(f"{len(satellites)} satellite(s) loaded successfully.")
 except Exception as e:
      logger.critical(e)
-     exit(1)
+     sys.exit(1)
 
 try:
      with open("STATIONS.csv", newline='') as csvfile:
@@ -55,7 +56,7 @@ try:
           logger.info(f"{len(observatories)} observatories loaded successfully.")
 except Exception as e:
      logger.critical(e)
-     exit(1)
+     sys.exit(1)
 
 try:
      for sat in satellites:
@@ -66,27 +67,27 @@ try:
                tles.append(tle)
           else:
                logger.critical(f"Error fetching initial TLE data for satelite {sat} with status code {res.status_code}.")
-               exit(1)
+               sys.exit(1)
      logger.info(f"{len(tles)} TLE(s) fetched successfully.")
 except Exception as e:
      logger.critical(e)
-     exit(1)
+     sys.exit(1)
 
 parsed_observatories = [(point[0], point[1], float(point[3]), float(point[4])) for point in observatories]
 
 def haversine(lat1, lon1, lat2, lon2):
-        R = 6371.0  # Earth radius in km
+        radius = 6371.0  # Earth radius in km
         phi1 = np.radians(lat1)
         phi2 = np.radians(lat2)
         delta_phi = np.radians(lat2 - lat1)
         delta_lambda = np.radians(lon2 - lon1)
         a = np.sin(delta_phi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(delta_lambda / 2) ** 2
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-        return round(R * c,1)
+        return round(radius * c,1)
 
-def saveEvent(time, observatory, sat, tweetId):
+def save_event(time, observatory, sat, tweet_id):
      try:
-          eventDict = {
+          event_dict = {
                "timestamp": round(time,0),
                "obsIAGA": observatory["IAGA"],
                "obsName": observatory["Name"],
@@ -94,16 +95,16 @@ def saveEvent(time, observatory, sat, tweetId):
                "obsLon": observatory["Lon"],
                "satNORAD": sat["ID"],
                "satName": sat["Name"],
-               "tweetID": tweetId,
+               "tweetID": tweet_id,
                "resolved": False
           }
-          event = eventsCollection.insert_one(eventDict)
+          event = eventsCollection.insert_one(event_dict)
           logger.info(f"Event {event.inserted_id} saved successfully.")
      except Exception as e:
           logger.critical(e)
-          exit(1)
+          sys.exit(1)
 
-def updateTLE():
+def update_tles():
      try:
           global tles
           updated_tles = []
@@ -127,7 +128,7 @@ while True:
     try:
      current_time = tm.time()
      current_time_utc = datetime.now(timezone.utc).timestamp()
-    
+
      ts = load.timescale()
      time = ts.now()
 
@@ -136,15 +137,15 @@ while True:
           geocentric = satellite.at(time)
           subpoint = geocentric.subpoint()
           sat_lat, sat_lon = subpoint.latitude.degrees, subpoint.longitude.degrees
-    
+
           for iaga, name, lat, lon in parsed_observatories:
                distance = haversine(lat, lon, sat_lat, sat_lon)
                #print(f"Distance from {iaga} to {satellite.name} satellite: {distance} km")
                if distance <= DEG_MARGIN * 111:  # Convert degrees to approximate km (1 degree ~ 111 km)
                     #print(f"Satellite {satellite.name} is within 2 degrees of the {iaga} station")
-                    logger.info(f"Satellite {satellite.name} is within 2 degrees of the {iaga} station")
                     key = (satellite.model.satnum, iaga)
                     if key not in last_event_time or current_time_utc - last_event_time[key] >= EVENT_DURATION_THRESHOLD:
+                         logger.info(f"Satellite {satellite.name} is within 2 degrees of the {iaga} station")
                          obs = {
                               "IAGA": iaga,
                               "Name": name,
@@ -156,17 +157,20 @@ while True:
                               "Name": satellite.name
                          }
                          tweetId = twitter.tweet(f"🔔🛰️ Satellite {satellite.name} ({satellite.model.satnum}) is now within 2º of {name} ({iaga}) observatory at {datetime.fromtimestamp(round(float(current_time_utc),1), tz=timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC")
-                         saveEvent(current_time_utc, obs, sat, tweetId)
+                         save_event(current_time_utc, obs, sat, tweetId)
                          last_event_time[key] = current_time_utc
      #print("================================================")
-     if current_time - last_tle_update >= TIME_BETWEEN_TLE_UPDATES: #time is seconds
-          updateTLE()
+     if current_time - last_tle_update >= TIME_BETWEEN_TLE_UPDATES:
+          update_tles()
           last_tle_update = current_time
      if current_time - last_mag_update >= TIME_BETWEEN_EVENT_CHECKS:
-          im.checkEvents()
+          im.check_events()
           last_mag_update = current_time
+     if current_time - last_expired_events_check >= 345600:#3 days
+          im.check_expired_events(current_time_utc)
+          last_expired_events_check = current_time
      tm.sleep(5) 
     except Exception as e:
      logger.critical(e)
-     exit(1)
+     sys.exit(1)
          
