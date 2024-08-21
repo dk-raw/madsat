@@ -69,7 +69,7 @@ def check_events():
     try:
         events = eventsCollection.find({"resolved": False})
         for event in events:
-            current_time_utc = datetime.now(timezone.utc).timestamp()
+            # current_time_utc = datetime.now(timezone.utc).timestamp()
             # if current_time_utc - event["timestamp"] > 172800: # 2 days
             #     twitter.reply(f"Event {event["_id"]} expired as there will be no data available.", event["tweetID"])
             #     resolve_event(event["_id"])
@@ -148,7 +148,7 @@ def anomalies(df,id):
         logger.critical(e)
         sys.exit(1)
 
-def graph(df, eventId, iaga, obs_name, datetime, center_time):
+def graph(df, event_id, iaga, obs_name, datetime, center_time):
     try:
         logger.info("Starting to plot data...")
         # Plotting
@@ -165,7 +165,7 @@ def graph(df, eventId, iaga, obs_name, datetime, center_time):
         plt.xlabel(f"{datetime.year}-{datetime.month}-{datetime.day}")
         plt.ylabel("Relative Propability")
         plt.title(f"{iaga} - {obs_name}")
-        plt.savefig(f"temp/image-{eventId}.png")
+        plt.savefig(f"temp/image-{event_id}.png")
     except Exception as e:
         logger.critical(e)
         sys.exit(1)

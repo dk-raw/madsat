@@ -40,7 +40,7 @@ except Exception as e:
      sys.exit(1)
 
 try:
-     with open("SATELLITES.csv", newline='') as csvfile:
+     with open("SATELLITES.csv", newline="", encoding="utf-8") as csvfile:
           csv_reader = csv.reader(csvfile)
           for row in csv_reader:
                satellites.append(row[0])
@@ -50,7 +50,7 @@ except Exception as e:
      sys.exit(1)
 
 try:
-     with open("STATIONS.csv", newline='') as csvfile:
+     with open("STATIONS.csv", newline="", encoding="utf-8") as csvfile:
           csv_reader = csv.reader(csvfile)
           observatories = tuple(tuple(row) for row in csv_reader)
           logger.info("%s observatories loaded successfully.", len(observatories))
@@ -106,7 +106,6 @@ def save_event(time, observatory, sat, tweet_id):
 
 def update_tles():
      try:
-          global tles
           updated_tles = []
           for sat in satellites:
                url = f"https://celestrak.com/NORAD/elements/gp.php?CATNR={sat}"
@@ -169,7 +168,7 @@ while True:
      if current_time - last_expired_events_check >= 345600:#3 days
           im.check_expired_events(current_time_utc)
           last_expired_events_check = current_time
-     tm.sleep(5) 
+     tm.sleep(5)
     except Exception as e:
      logger.critical(e)
      sys.exit(1)
